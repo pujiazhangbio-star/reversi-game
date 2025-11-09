@@ -50,7 +50,11 @@ int main() {
                 void* pData = LockResource(hData);
                 DWORD sz = SizeofResource(nullptr, res);
                 if (pData && sz > 0) {
+#if defined(SFML_VERSION_MAJOR) && (SFML_VERSION_MAJOR >= 3)
+                    if (font.openFromMemory(pData, static_cast<std::size_t>(sz))) {
+#else
                     if (font.loadFromMemory(pData, static_cast<std::size_t>(sz))) {
+#endif
                         fontOk = true;
                         usedFont = "<embedded resource>";
                     }
