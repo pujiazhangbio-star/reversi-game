@@ -34,10 +34,9 @@ jobs:
         shell: cmd
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=vcpkg\scripts\buildsystems\vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static -DSTATIC_SINGLE_EXE=ON -DEMBED_FONT=ON -DCMAKE_BUILD_TYPE=Release
-      - name: List build files (debug)
-        run: dir build\ /b
-
+      
       - name: Build
+        shell: cmd
         run: cmake --build build --config Release --parallel
 
       - name: Collect exe
