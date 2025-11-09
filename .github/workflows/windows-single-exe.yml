@@ -1,0 +1,56 @@
+name: Windows Single EXE (Static)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'reversi_sfml.cpp'
+      - 'CMakeLists.txt'
+      - 'resources.rc'
+      - '.github/workflows/windows-single-exe.yml'
+      - 'fonts/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: microsoft/vcpkg-action@v1
+        with:
+          vcpkgGitCommitId: 25c8436466fb6f211a6d29be7bbda3a3a4d02c0c
+      - name: Install SFML (static)
+        shell: pwsh
+        run: |
+          & "${{ env.VCPKG_ROOT }}\\vcpkg.exe" install sfml:x64-windows-static
+
+      - name: Configure (CMake + vcpkg static)
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
+            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}\\scripts\\buildsystems\\vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static \
+            -DSTATIC_SINGLE_EXE=ON \
+            -DEMBED_FONT=ON \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: List build files (debug)
+        run: dir build\ /b
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Collect exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse -Path build -Filter reversi.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error "reversi.exe not found" }
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item $exe.FullName dist/reversi.exe
+          Write-Host "Collected: $($exe.FullName)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reversi-windows-single-exe
+          path: dist/reversi.exe

@@ -1,0 +1,10 @@
+#ifdef APSTUDIO_INVOKED
+#ifndef APSTUDIO_READONLY_SYMBOLS
+#define APSTUDIO_READONLY_SYMBOLS
+#endif
+#endif
+
+// Embed the TTF as raw data so the exe can load it from memory
+#include "resource.h"
+
+IDR_FONT_DEJAVU RCDATA "fonts/DejaVuSans.ttf"
