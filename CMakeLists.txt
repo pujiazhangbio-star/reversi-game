@@ -31,17 +31,17 @@ else()
   target_link_libraries(reversi PRIVATE sfml-graphics sfml-window sfml-system)
 endif()
 
+
+# 强制 MSVC 使用静态运行库 /MT，解决 SFML 静态库链接冲突
+if(MSVC)
+  foreach(flag_var CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG)
+    string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+  endforeach()
+endif()
+
 if(WIN32 AND STATIC_SINGLE_EXE)
-  # Try to reduce runtime dependencies. Full static may still pull in some DLLs (e.g. for networking, freetype etc.).
   if(MINGW)
     target_link_options(reversi PRIVATE -static -static-libgcc -static-libstdc++)
-  elseif(MSVC)
-    # Use static runtime (/MT) – safe for a self-contained exe
-    foreach(flag_var CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG)
-      if(${flag_var} MATCHES "/MD")
-        string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-      endif()
-    endforeach()
   endif()
   # SFML static libs expect SFML_STATIC macro when using legacy 2.x
   target_compile_definitions(reversi PRIVATE SFML_STATIC)
