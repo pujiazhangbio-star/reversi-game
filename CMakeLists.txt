@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
+
+# 强制 MSVC 使用静态运行库 /MT（必须在 project() 之前设置）
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 project(reversi_sfml LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -29,14 +35,6 @@ if(SFML_VERSION VERSION_GREATER_EQUAL 3)
   target_link_libraries(reversi PRIVATE SFML::Graphics SFML::Window SFML::System)
 else()
   target_link_libraries(reversi PRIVATE sfml-graphics sfml-window sfml-system)
-endif()
-
-
-# 强制 MSVC 使用静态运行库 /MT，解决 SFML 静态库链接冲突
-if(MSVC)
-  foreach(flag_var CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG)
-    string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-  endforeach()
 endif()
 
 if(WIN32 AND STATIC_SINGLE_EXE)
