@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-# 强制 MSVC 使用静态运行库 /MT（必须在 project() 之前设置）
-if(MSVC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
+# 强制使用静态运行库（必须在 project() 之前）
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 project(reversi_sfml LANGUAGES CXX)
 
@@ -30,6 +28,9 @@ if(WIN32 AND EMBED_FONT)
   target_compile_definitions(reversi PRIVATE EMBED_FONT_RESOURCE)
 endif()
 
+# 使用静态 SFML 库时必须定义 SFML_STATIC
+target_compile_definitions(reversi PRIVATE SFML_STATIC)
+
 # Link depending on the found version
 if(SFML_VERSION VERSION_GREATER_EQUAL 3)
   target_link_libraries(reversi PRIVATE SFML::Graphics SFML::Window SFML::System)
@@ -41,8 +42,6 @@ if(WIN32 AND STATIC_SINGLE_EXE)
   if(MINGW)
     target_link_options(reversi PRIVATE -static -static-libgcc -static-libstdc++)
   endif()
-  # SFML static libs expect SFML_STATIC macro when using legacy 2.x
-  target_compile_definitions(reversi PRIVATE SFML_STATIC)
 endif()
 
 # On macOS and Linux, help runtime find SFML shared libs when not using a package manager
