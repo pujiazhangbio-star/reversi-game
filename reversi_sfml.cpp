@@ -12,6 +12,9 @@
 #include <SFML/Config.hpp>
 #include <array>
 
+#include "audio_manager.h"
+#include "sound_definition.h"
+
 #if defined(_WIN32)
 #  define NOMINMAX
 #  include <windows.h>
@@ -376,6 +379,27 @@ int runSFML() {
     endHint.setOutlineThickness(2.f);
     endHint.setPosition(sf::Vector2f(winW/2.f-180.f, 290.f));
 
+    // 音频与全局记分
+    AudioManager& audio = AudioManager::getInstance();
+    // 尝试加载默认音效目录（文件可能不存在，加载失败会被忽略）
+    for (int i = 0; i < NUM_SOUNDS; ++i) {
+        const SoundConfig &cfg = DEFAULT_SOUNDS[i];
+        audio.loadSound(cfg.name, cfg.filename);
+    }
+
+    // 全局比分统计（每局胜利计数）
+    int totalBlackWins = 0;
+    int totalWhiteWins = 0;
+    int totalDraws = 0;
+
+    // 先手选择（true 表示玩家先手/黑）
+    bool playerStartsBlack = true;
+
+    // 菜单上显示先手信息
+    sf::Text starterText = makeText(font, (playerStartsBlack ? std::string("先手: 玩家(黑)") : std::string("先手: 电脑(白)")), 20);
+    starterText.setFillColor(sf::Color::White);
+    starterText.setPosition(sf::Vector2f(winW/2.f-120.f, 380.f));
+
     // 历史记录：每步保存棋盘和当前玩家
     std::vector<std::pair<int[BOARD_N][BOARD_N], int>> history;
 
@@ -499,7 +523,7 @@ int runSFML() {
             } else {
                 // 结束
                 auto [b,w] = countDiscs();
-                endScore.setString("Black: " + std::to_string(b) + "  White: " + std::to_string(w));
+                // endScore will include current game score and running totals (after update)
                 if (gameMode == GameMode::PvC) {
                     // 人类=黑棋，AI=白棋
                     if (b>w) endResult.setString("You win!");
@@ -510,6 +534,14 @@ int runSFML() {
                     else if (b<w) endResult.setString("White wins");
                     else endResult.setString("Draw");
                 }
+                // 更新统计
+                if (b > w) totalBlackWins++; else if (w > b) totalWhiteWins++; else totalDraws++;
+                // 更新显示字符串，包含本局比分与累计胜负
+                std::string scoreLine = "Black: " + std::to_string(b) + "  White: " + std::to_string(w);
+                std::string totalLine = "Total - BlackWins: " + std::to_string(totalBlackWins)
+                    + "  WhiteWins: " + std::to_string(totalWhiteWins) + "  Draws: " + std::to_string(totalDraws);
+                endScore.setString(scoreLine + "\n" + totalLine);
+                audio.playSound("game_end");
                 gameState = GameState::End;
             }
         }
@@ -542,6 +574,7 @@ int runSFML() {
             window.draw(title);
             window.draw(btn1); window.draw(btn2);
             window.draw(txt1); window.draw(txt2);
+            window.draw(starterText);
             window.display();
             // Events for Start screen
 #if defined(SFML_VERSION_MAJOR) && (SFML_VERSION_MAJOR >= 3)
@@ -551,9 +584,19 @@ int runSFML() {
                     auto mouse = event->getIf<sf::Event::MouseButtonPressed>();
                     sf::Vector2f mp(static_cast<float>(mouse->position.x), static_cast<float>(mouse->position.y));
                     if (btn1.getGlobalBounds().contains(mp)) {
+                        audio.playSound("button_click");
                         gameMode = GameMode::PvC; gameState = GameState::Playing;
                     } else if (btn2.getGlobalBounds().contains(mp)) {
+                        audio.playSound("button_click");
                         gameMode = GameMode::PvP; gameState = GameState::Playing;
+                    }
+                } else if (event->is<sf::Event::KeyPressed>()) {
+                    auto key = event->getIf<sf::Event::KeyPressed>()->code;
+                    // 按 F 切换先手
+                    if (key == sf::Keyboard::Key::F) {
+                        playerStartsBlack = !playerStartsBlack;
+                        starterText.setString(playerStartsBlack ? "先手: 玩家(黑)" : "先手: 电脑(白)");
+                        audio.playSound("button_click");
                     }
                 }
             }
@@ -564,9 +607,18 @@ int runSFML() {
                 else if (ev.type == sf::Event::MouseButtonPressed) {
                     sf::Vector2f mp(static_cast<float>(ev.mouseButton.x), static_cast<float>(ev.mouseButton.y));
                     if (btn1.getGlobalBounds().contains(mp)) {
+                        audio.playSound("button_click");
                         gameMode = GameMode::PvC; gameState = GameState::Playing;
                     } else if (btn2.getGlobalBounds().contains(mp)) {
+                        audio.playSound("button_click");
                         gameMode = GameMode::PvP; gameState = GameState::Playing;
+                    }
+                } else if (ev.type == sf::Event::KeyPressed) {
+                    auto key = ev.key.code;
+                    if (key == sf::Keyboard::F) {
+                        playerStartsBlack = !playerStartsBlack;
+                        starterText.setString(playerStartsBlack ? "先手: 玩家(黑)" : "先手: 电脑(白)");
+                        audio.playSound("button_click");
                     }
                 }
             }
@@ -636,6 +688,7 @@ int runSFML() {
                     int r = rc.first, c = rc.second;
                     if (r != -1 && isValidMove(r, c, currentPlayer)) {
                         saveHistory(); makeMove(r, c, currentPlayer);
+                        audio.playSound("place_piece");
                         currentPlayer = (currentPlayer == 1 ? 2 : 1); checkEndOrPass();
                     }
                 }
@@ -661,6 +714,7 @@ int runSFML() {
                     int r = rc.first, c = rc.second;
                     if (r != -1 && isValidMove(r, c, currentPlayer)) {
                         saveHistory(); makeMove(r, c, currentPlayer);
+                        audio.playSound("place_piece");
                         currentPlayer = (currentPlayer == 1 ? 2 : 1); checkEndOrPass();
                     }
                 }
@@ -680,6 +734,7 @@ int runSFML() {
             if (bestFlip>0) {
                 saveHistory();
                 makeMove(bestR,bestC,2);
+                audio.playSound("place_piece");
                 currentPlayer = 1;
                 checkEndOrPass();
             } else {
