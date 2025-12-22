@@ -32,17 +32,41 @@ jobs:
       run: |
         cmake --build build --config Release --target reversi -j
 
-    - name: Collect runtime files and package
+    - name: Collect runtime files and package (with diagnostics)
       shell: powershell
       run: |
+        Write-Host "=== Packaging diagnostics: listing build tree ==="
+        if (Test-Path build) { Get-ChildItem -Path build -Recurse | ForEach-Object { Write-Host $_.FullName } } else { Write-Host "[DIAG] No build directory found" }
+
+        $exePath = "build\Release\reversi.exe"
+        Write-Host "[DIAG] Checking for executable: $exePath"
+        if (-not (Test-Path $exePath)) {
+          Write-Host "[ERROR] Executable not found at $exePath"
+          Write-Host "[DIAG] Showing build\Release contents (if any):"
+          if (Test-Path build\Release) { Get-ChildItem -Path build\Release | ForEach-Object { Write-Host $_.FullName } } else { Write-Host "[DIAG] build\\Release does not exist" }
+          exit 1
+        }
+
+        Write-Host "[DIAG] Creating package directory and copying files"
         mkdir package
-        Copy-Item -Path build\Release\reversi.exe -Destination package\ -Force
-        if (Test-Path fonts) { Copy-Item -Path fonts -Destination package\ -Recurse -Force }
-        if (Test-Path sounds) { Copy-Item -Path sounds -Destination package\ -Recurse -Force }
+        Copy-Item -Path $exePath -Destination package\ -Force
+
+        if (Test-Path fonts) { Write-Host "[DIAG] Copying fonts/"; Copy-Item -Path fonts -Destination package\ -Recurse -Force } else { Write-Host "[DIAG] fonts/ not present" }
+        if (Test-Path sounds) { Write-Host "[DIAG] Copying sounds/"; Copy-Item -Path sounds -Destination package\ -Recurse -Force } else { Write-Host "[DIAG] sounds/ not present" }
+
         # copy SFML DLLs from vcpkg installed folder
         $vcpkgBin = Join-Path -Path "${{ github.workspace }}" -ChildPath "vcpkg\\installed\\x64-windows\\bin"
-        if (Test-Path $vcpkgBin) { Copy-Item -Path (Join-Path $vcpkgBin "*.dll") -Destination package\ -Force }
+        Write-Host "[DIAG] vcpkg bin path: $vcpkgBin"
+        if (Test-Path $vcpkgBin) {
+          Write-Host "[DIAG] Listing DLLs in vcpkg bin"
+          Get-ChildItem -Path $vcpkgBin -Filter *.dll | ForEach-Object { Write-Host "DLL: $($_.FullName)" }
+          Copy-Item -Path (Join-Path $vcpkgBin "*.dll") -Destination package\ -Force
+        } else {
+          Write-Host "[DIAG] vcpkg bin not found at $vcpkgBin"
+        }
+
         # create zip
+        Write-Host "[DIAG] Creating ZIP archive reversi-windows.zip"
         Compress-Archive -Path package\* -DestinationPath reversi-windows.zip -Force
 
     - name: Upload artifact
