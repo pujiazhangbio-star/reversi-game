@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     "/Users/a161026/Documents/c++作业/大作业打包/output/reversi_console"
-relocations:     []
-...
