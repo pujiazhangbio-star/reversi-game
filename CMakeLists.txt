@@ -44,8 +44,11 @@ if(BUILD_GUI AND SFML_FOUND)
     target_compile_definitions(reversi PRIVATE EMBED_FONT_RESOURCE)
   endif()
 
-  # 使用静态 SFML 库时必须定义 SFML_STATIC
-  target_compile_definitions(reversi PRIVATE SFML_STATIC)
+  # Define SFML_STATIC only when we are explicitly requesting a static single exe
+  # (setting SFML_STATIC unconditionally can break linking when using shared SFML from vcpkg)
+  if(WIN32 AND STATIC_SINGLE_EXE)
+    target_compile_definitions(reversi PRIVATE SFML_STATIC)
+  endif()
 
   # Link depending on the found version
   if(SFML_VERSION VERSION_GREATER_EQUAL 3)
