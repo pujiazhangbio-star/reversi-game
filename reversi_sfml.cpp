@@ -15,6 +15,9 @@
 #include "audio_manager.h"
 #include "sound_definition.h"
 
+// Forward declare GUI runner so console namespace can call it
+int runSFML();
+
 #if defined(_WIN32)
 #  define NOMINMAX
 #  include <windows.h>
@@ -184,16 +187,16 @@ public:
     }
 
     bool undoMove() {
-        if (moveHistory.empty()) { std::cout << "没有可撤的记录\n"; return false; }
+    if (moveHistory.empty()) { std::cout << "No undo records\n"; return false; }
         auto last = moveHistory.top(); moveHistory.pop(); auto movePos = last.first; board[movePos.first][movePos.second]=EMPTY_C;
         char opponent = (currentPlayer==BLACK_C?WHITE_C:BLACK_C);
         for (auto pos: last.second) board[pos.first][pos.second]=opponent;
-        switchPlayer(); std::cout<<"撤销成功\n"; return true;
+    switchPlayer(); std::cout<<"Undo successful\n"; return true;
     }
 
     bool isGameOver() { return getValidMoves(BLACK_C).empty() && getValidMoves(WHITE_C).empty(); }
 
-    void showResult() { int b,w; countPieces(b,w); std::cout<<"\n游戏结束\n"; std::cout<<"黑: "<<b<<" 白: "<<w<<"\n"; if (b>w) std::cout<<"黑胜\n"; else if (w>b) std::cout<<"白胜\n"; else std::cout<<"平局\n"; }
+    void showResult() { int b,w; countPieces(b,w); std::cout<<"\nGame over\n"; std::cout<<"Black: "<<b<<" White: "<<w<<"\n"; if (b>w) std::cout<<"Black wins\n"; else if (w>b) std::cout<<"White wins\n"; else std::cout<<"Draw\n"; }
 
     std::pair<int,int> computerMove() {
         auto moves = getValidMoves(currentPlayer);
@@ -218,18 +221,18 @@ public:
     }
 
     void playGame() {
-        std::cout<<"=== 翻转棋 (控制台) ===\n";
-        std::cout<<"输入坐标格式: 行 列 (例如: 3 4)"<<std::endl;
-        std::cout<<"输入 'undo' 撤销， 'quit' 退出"<<std::endl;
+    std::cout<<"=== Reversi (Console) ===\n";
+    std::cout<<"Enter coordinates: row col (e.g., 3 4)"<<std::endl;
+    std::cout<<"Type 'undo' to undo, 'quit' to exit"<<std::endl;
         while (!isGameOver()) {
             printBoard(); auto valid = getValidMoves(currentPlayer);
-            if (valid.empty()) { std::cout<<"当前玩家无子可下，跳过...\n"; switchPlayer(); continue; }
+            if (valid.empty()) { std::cout<<"Current player has no moves, skipping...\n"; switchPlayer(); continue; }
             if (vsComputer && currentPlayer==WHITE_C) {
-                std::cout<<"AI 思考中...\n"; auto mv = computerMove(); if (mv.first!=-1) { makeMove(mv.first,mv.second,currentPlayer); std::cout<<"AI 下子: ("<<mv.first<<","<<mv.second<<")\n"; switchPlayer(); }
+                std::cout<<"AI thinking...\n"; auto mv = computerMove(); if (mv.first!=-1) { makeMove(mv.first,mv.second,currentPlayer); std::cout<<"AI move: ("<<mv.first<<","<<mv.second<<")\n"; switchPlayer(); }
             } else {
-                std::string in; std::cout<<"请输入落子或命令: "; std::cin>>in; if (in=="quit") break; if (in=="undo") { undoMove(); continue; }
-                try { int x = std::stoi(in); int y; std::cin>>y; if (isValidMove(x,y,currentPlayer)) { makeMove(x,y,currentPlayer); switchPlayer(); } else { std::cout<<"无效落子\n"; } }
-                catch(...) { std::cout<<"格式错误, 请用: 行 列\n"; std::cin.clear(); std::cin.ignore(10000,'\n'); }
+                std::string in; std::cout<<"Enter move or command: "; std::cin>>in; if (in=="quit") break; if (in=="undo") { undoMove(); continue; }
+                try { int x = std::stoi(in); int y; std::cin>>y; if (isValidMove(x,y,currentPlayer)) { makeMove(x,y,currentPlayer); switchPlayer(); } else { std::cout<<"Invalid move\n"; } }
+                catch(...) { std::cout<<"Format error, use: row col\n"; std::cin.clear(); std::cin.ignore(10000,'\n'); }
             }
         }
         if (isGameOver()) showResult();
@@ -237,7 +240,7 @@ public:
 };
 
 int runConsoleGame() {
-    std::cout << "请选择模式: 1. 双人 2. 人机(简单) 3. 人机(中等) 4. 人机(困难)\n";
+    std::cout << "Select mode: 1. Two players 2. vsComputer (Easy) 3. vsComputer (Medium) 4. vsComputer (Hard)\n";
     int choice = 2; std::cin >> choice;
     bool vsComputer = (choice != 1);
     AIDifficulty diff = AIDifficulty::MEDIUM;
@@ -247,8 +250,11 @@ int runConsoleGame() {
     return 0;
 }
 
+} // namespace ConsoleOthello
+
+// Global main: dispatch between GUI and console. runSFML() is forward-declared above.
 int main() {
-    std::cout << "请选择运行模式:\n1) GUI (SFML)\n2) 控制台模式\n输入数字并回车: ";
+    std::cout << "Select run mode:\n1) GUI (SFML)\n2) Console\nEnter number: ";
     int mode = 1;
     if (!(std::cin >> mode)) return 0;
     if (mode == 2) {
@@ -257,8 +263,6 @@ int main() {
         return runSFML();
     }
 }
-
-} // namespace ConsoleOthello
 
 // --- End of console implementation ---
 
@@ -357,27 +361,79 @@ int runSFML() {
     };
     centerTextInRect(txt1, btn1);
     centerTextInRect(txt2, btn2);
-    // 结束页文本
+    // Difficulty buttons (Easy / Medium / Hard)
+    sf::RectangleShape diffEasy(sf::Vector2f(120.f, 40.f)), diffMed(sf::Vector2f(120.f, 40.f)), diffHard(sf::Vector2f(120.f, 40.f));
+    // place difficulty buttons between the Start PvC button and the Starter text (moved up)
+    const float diffY = 345.f; // middle area between btn1 center and starterText
+    diffEasy.setPosition(sf::Vector2f(winW/2.f-190.f, diffY));
+    diffMed.setPosition(sf::Vector2f(winW/2.f-60.f, diffY));
+    diffHard.setPosition(sf::Vector2f(winW/2.f+70.f, diffY));
+    diffEasy.setFillColor(sf::Color(80,80,140)); diffMed.setFillColor(sf::Color(80,140,80)); diffHard.setFillColor(sf::Color(140,80,80));
+    sf::Text diffTxtE = makeText(font, "Easy", 20);
+    sf::Text diffTxtM = makeText(font, "Medium", 20);
+    sf::Text diffTxtH = makeText(font, "Hard", 20);
+    diffTxtE.setFillColor(sf::Color::White); diffTxtM.setFillColor(sf::Color::White); diffTxtH.setFillColor(sf::Color::White);
+    centerTextInRect(diffTxtE, diffEasy); centerTextInRect(diffTxtM, diffMed); centerTextInRect(diffTxtH, diffHard);
+
+    enum class Difficulty { EASY, MEDIUM, HARD } aiDifficulty = Difficulty::MEDIUM;
+    sf::Text diffSelected = makeText(font, "Difficulty: Medium", 18);
+    diffSelected.setFillColor(sf::Color::White);
+    // starterY 用来定位 starter 文本和 diffSelected 相对位置，提前声明以便后续使用
+    const float starterY = 460.f;
+    auto updateDifficultyDisplay = [&](){
+        switch(aiDifficulty) {
+            case Difficulty::EASY: diffSelected.setString("Difficulty: Easy"); break;
+            case Difficulty::MEDIUM: diffSelected.setString("Difficulty: Medium"); break;
+            case Difficulty::HARD: diffSelected.setString("Difficulty: Hard"); break;
+        }
+    };
+    // 结束页文本（居中） helper - define before we use it to position diffSelected
+    auto centerTextAt = [&](sf::Text &t, float cx, float y){
+#if defined(SFML_VERSION_MAJOR) && (SFML_VERSION_MAJOR >= 3)
+    sf::FloatRect b = t.getLocalBounds();
+    t.setOrigin({b.position.x + b.size.x/2.f, b.position.y + b.size.y/2.f});
+#else
+    sf::FloatRect b = t.getLocalBounds();
+    t.setOrigin({b.left + b.width/2.f, b.top + b.height/2.f});
+#endif
+    t.setPosition({cx, y});
+    };
+
+    updateDifficultyDisplay();
+    // position the difficulty summary above the starter text (so it doesn't overlap the buttons)
+    centerTextAt(diffSelected, winW/2.f, starterY - 30.f);
+
     sf::Text endTitle = makeText(font, "Game Over", 48);
     endTitle.setFillColor(sf::Color::White);
     endTitle.setOutlineColor(sf::Color::Black);
     endTitle.setOutlineThickness(2.f);
-    endTitle.setPosition(sf::Vector2f(winW/2.f-140.f, 80.f));
+    centerTextAt(endTitle, winW/2.f, 80.f);
+
     sf::Text endResult = makeText(font, "", 40);
     endResult.setFillColor(sf::Color::White);
     endResult.setOutlineColor(sf::Color::Black);
     endResult.setOutlineThickness(2.f);
-    endResult.setPosition(sf::Vector2f(winW/2.f-120.f, 170.f));
-    sf::Text endScore = makeText(font, "", 28);
-    endScore.setFillColor(sf::Color::White);
-    endScore.setOutlineColor(sf::Color::Black);
-    endScore.setOutlineThickness(2.f);
-    endScore.setPosition(sf::Vector2f(winW/2.f-120.f, 230.f));
-    sf::Text endHint = makeText(font, "Enter: Play Again   Esc: Back to Start", 22);
+    // place result directly under the title
+    centerTextAt(endResult, winW/2.f, 140.f);
+
+    // Split score into two separate lines so we can position them independently
+    sf::Text endScore1 = makeText(font, "", 28);
+    endScore1.setFillColor(sf::Color::White);
+    endScore1.setOutlineColor(sf::Color::Black);
+    endScore1.setOutlineThickness(2.f);
+    centerTextAt(endScore1, winW/2.f, 240.f);
+
+    sf::Text endScore2 = makeText(font, "", 22);
+    endScore2.setFillColor(sf::Color::White);
+    endScore2.setOutlineColor(sf::Color::Black);
+    endScore2.setOutlineThickness(2.f);
+    centerTextAt(endScore2, winW/2.f, 280.f);
+
+    sf::Text endHint = makeText(font, "Enter: Play Again   Esc: Back to Start", 20);
     endHint.setFillColor(sf::Color::White);
     endHint.setOutlineColor(sf::Color::Black);
     endHint.setOutlineThickness(2.f);
-    endHint.setPosition(sf::Vector2f(winW/2.f-180.f, 290.f));
+    centerTextAt(endHint, winW/2.f, 340.f);
 
     // 音频与全局记分
     AudioManager& audio = AudioManager::getInstance();
@@ -395,10 +451,13 @@ int runSFML() {
     // 先手选择（true 表示玩家先手/黑）
     bool playerStartsBlack = true;
 
-    // 菜单上显示先手信息
-    sf::Text starterText = makeText(font, (playerStartsBlack ? std::string("先手: 玩家(黑)") : std::string("先手: 电脑(白)")), 20);
+    // show PvC options after clicking PvC
+    bool showPvCOptions = false;
+
+    // 菜单上显示先手信息 (placed below difficulty controls)
+    sf::Text starterText = makeText(font, (playerStartsBlack ? std::string("Starter: Player (Black)") : std::string("Starter: Computer (White)")), 20);
     starterText.setFillColor(sf::Color::White);
-    starterText.setPosition(sf::Vector2f(winW/2.f-120.f, 380.f));
+    starterText.setPosition(sf::Vector2f(winW/2.f-120.f, starterY));
 
     // 历史记录：每步保存棋盘和当前玩家
     std::vector<std::pair<int[BOARD_N][BOARD_N], int>> history;
@@ -536,11 +595,16 @@ int runSFML() {
                 }
                 // 更新统计
                 if (b > w) totalBlackWins++; else if (w > b) totalWhiteWins++; else totalDraws++;
-                // 更新显示字符串，包含本局比分与累计胜负
+                // 更新显示字符串，包含本局比分与累计胜负 (拆成两行以便对齐)
                 std::string scoreLine = "Black: " + std::to_string(b) + "  White: " + std::to_string(w);
                 std::string totalLine = "Total - BlackWins: " + std::to_string(totalBlackWins)
                     + "  WhiteWins: " + std::to_string(totalWhiteWins) + "  Draws: " + std::to_string(totalDraws);
-                endScore.setString(scoreLine + "\n" + totalLine);
+                endScore1.setString(scoreLine);
+                endScore2.setString(totalLine);
+                // re-center after changing text (needed because local bounds changed)
+                centerTextAt(endResult, winW/2.f, 140.f);
+                centerTextAt(endScore1, winW/2.f, 200.f);
+                centerTextAt(endScore2, winW/2.f, 240.f);
                 audio.playSound("game_end");
                 gameState = GameState::End;
             }
@@ -572,9 +636,20 @@ int runSFML() {
     if (gameState == GameState::Start) {
             window.clear({20,40,60});
             window.draw(title);
-            window.draw(btn1); window.draw(btn2);
-            window.draw(txt1); window.draw(txt2);
-            window.draw(starterText);
+            window.draw(btn1);
+            window.draw(txt1);
+            // only draw PvP button when PvC options are NOT shown
+            if (!showPvCOptions) {
+                window.draw(btn2);
+                window.draw(txt2);
+            }
+            // show PvC options after clicking Player vs Computer
+            if (showPvCOptions) {
+                window.draw(diffEasy); window.draw(diffMed); window.draw(diffHard);
+                window.draw(diffTxtE); window.draw(diffTxtM); window.draw(diffTxtH);
+                window.draw(diffSelected);
+                window.draw(starterText);
+            }
             window.display();
             // Events for Start screen
 #if defined(SFML_VERSION_MAJOR) && (SFML_VERSION_MAJOR >= 3)
@@ -585,17 +660,37 @@ int runSFML() {
                     sf::Vector2f mp(static_cast<float>(mouse->position.x), static_cast<float>(mouse->position.y));
                     if (btn1.getGlobalBounds().contains(mp)) {
                         audio.playSound("button_click");
-                        gameMode = GameMode::PvC; gameState = GameState::Playing;
-                    } else if (btn2.getGlobalBounds().contains(mp)) {
+                        if (!showPvCOptions) {
+                            // first click: reveal difficulty and starter options
+                            showPvCOptions = true;
+                            txt1.setString("Start PvC");
+                            // re-center txt1 inside btn1
+                            centerTextInRect(txt1, btn1);
+                        } else {
+                            // second click: actually start PvC game
+                            gameMode = GameMode::PvC; gameState = GameState::Playing;
+                        }
+                    } else if (!showPvCOptions && btn2.getGlobalBounds().contains(mp)) {
                         audio.playSound("button_click");
                         gameMode = GameMode::PvP; gameState = GameState::Playing;
+                    } else if (showPvCOptions && diffEasy.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::EASY; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && diffMed.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::MEDIUM; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && diffHard.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::HARD; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && starterText.getGlobalBounds().contains(mp)) {
+                        // allow clicking the starter text to toggle who starts
+                        playerStartsBlack = !playerStartsBlack;
+                        starterText.setString(playerStartsBlack ? "Starter: Player (Black)" : "Starter: Computer (White)");
+                        audio.playSound("button_click");
                     }
                 } else if (event->is<sf::Event::KeyPressed>()) {
                     auto key = event->getIf<sf::Event::KeyPressed>()->code;
                     // 按 F 切换先手
                     if (key == sf::Keyboard::Key::F) {
                         playerStartsBlack = !playerStartsBlack;
-                        starterText.setString(playerStartsBlack ? "先手: 玩家(黑)" : "先手: 电脑(白)");
+                        starterText.setString(playerStartsBlack ? "Starter: Player (Black)" : "Starter: Computer (White)");
                         audio.playSound("button_click");
                     }
                 }
@@ -608,16 +703,32 @@ int runSFML() {
                     sf::Vector2f mp(static_cast<float>(ev.mouseButton.x), static_cast<float>(ev.mouseButton.y));
                     if (btn1.getGlobalBounds().contains(mp)) {
                         audio.playSound("button_click");
-                        gameMode = GameMode::PvC; gameState = GameState::Playing;
-                    } else if (btn2.getGlobalBounds().contains(mp)) {
+                        if (!showPvCOptions) {
+                            showPvCOptions = true;
+                            txt1.setString("Start PvC");
+                            centerTextInRect(txt1, btn1);
+                        } else {
+                            gameMode = GameMode::PvC; gameState = GameState::Playing;
+                        }
+                    } else if (!showPvCOptions && btn2.getGlobalBounds().contains(mp)) {
                         audio.playSound("button_click");
                         gameMode = GameMode::PvP; gameState = GameState::Playing;
+                    } else if (showPvCOptions && diffEasy.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::EASY; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && diffMed.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::MEDIUM; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && diffHard.getGlobalBounds().contains(mp)) {
+                        aiDifficulty = Difficulty::HARD; updateDifficultyDisplay(); centerTextAt(diffSelected, winW/2.f, starterY - 30.f); audio.playSound("button_click");
+                    } else if (showPvCOptions && starterText.getGlobalBounds().contains(mp)) {
+                        playerStartsBlack = !playerStartsBlack;
+                        starterText.setString(playerStartsBlack ? "Starter: Player (Black)" : "Starter: Computer (White)");
+                        audio.playSound("button_click");
                     }
                 } else if (ev.type == sf::Event::KeyPressed) {
                     auto key = ev.key.code;
                     if (key == sf::Keyboard::F) {
                         playerStartsBlack = !playerStartsBlack;
-                        starterText.setString(playerStartsBlack ? "先手: 玩家(黑)" : "先手: 电脑(白)");
+                        starterText.setString(playerStartsBlack ? "Starter: Player (Black)" : "Starter: Computer (White)");
                         audio.playSound("button_click");
                     }
                 }
@@ -663,7 +774,8 @@ int runSFML() {
             window.clear({20,40,60});
             window.draw(endTitle);
             window.draw(endResult);
-            window.draw(endScore);
+            window.draw(endScore1);
+            window.draw(endScore2);
             window.draw(endHint);
             window.display();
             continue;
@@ -722,24 +834,137 @@ int runSFML() {
         }
 #endif
 
-        // PvC：AI为白棋（2），轮到AI则下子（简单贪心：翻子数最多）
+        // PvC：AI为白棋（2），轮到AI则下子（根据选择难度）
         if (gameState == GameState::Playing && gameMode == GameMode::PvC && currentPlayer == 2) {
-            int bestR=-1,bestC=-1,bestFlip=0;
-            for (int r=0;r<BOARD_N;++r) {
-                for (int c=0;c<BOARD_N;++c) {
-                    int f = evalFlipCount(r,c,2);
-                    if (f>bestFlip) { bestFlip=f; bestR=r; bestC=c; }
+            // helper: position weights for evaluation (used by HARD)
+            const int positionWeights[BOARD_N][BOARD_N] = {
+                {100, -20, 10, 5, 5, 10, -20, 100},
+                {-20, -30, -5, -5, -5, -5, -30, -20},
+                {10, -5, 1, 1, 1, 1, -5, 10},
+                {5, -5, 1, 1, 1, 1, -5, 5},
+                {5, -5, 1, 1, 1, 1, -5, 5},
+                {10, -5, 1, 1, 1, 1, -5, 10},
+                {-20, -30, -5, -5, -5, -5, -30, -20},
+                {100, -20, 10, 5, 5, 10, -20, 100}
+            };
+
+            // Helpers that operate on a board array (not captured main board)
+            auto isValidPosBoard = [&](int b[BOARD_N][BOARD_N], int r, int c){ return r>=0 && r<BOARD_N && c>=0 && c<BOARD_N; };
+            auto isValidMoveBoard = [&](int b[BOARD_N][BOARD_N], int r, int c, int player)->bool{
+                if (!isValidPosBoard(b,r,c) || b[r][c] != 0) return false;
+                int opponent = (player==1?2:1);
+                for (int d=0; d<8; ++d) {
+                    int nr=r+dx[d], nc=c+dy[d];
+                    if (isValidPosBoard(b,nr,nc) && b[nr][nc]==opponent) {
+                        nr += dx[d]; nc += dy[d];
+                        while (isValidPosBoard(b,nr,nc)) {
+                            if (b[nr][nc]==0) break;
+                            if (b[nr][nc]==player) return true;
+                            nr += dx[d]; nc += dy[d];
+                        }
+                    }
                 }
-            }
-            if (bestFlip>0) {
-                saveHistory();
-                makeMove(bestR,bestC,2);
-                audio.playSound("place_piece");
-                currentPlayer = 1;
+                return false;
+            };
+            auto getValidMovesBoard = [&](int b[BOARD_N][BOARD_N], int player){
+                std::vector<std::pair<int,int>> moves;
+                for (int r=0;r<BOARD_N;++r) for (int c=0;c<BOARD_N;++c) if (isValidMoveBoard(b,r,c,player)) moves.push_back({r,c});
+                return moves;
+            };
+            auto applyMoveBoard = [&](int b[BOARD_N][BOARD_N], int r, int c, int player){
+                if (!isValidMoveBoard(b,r,c,player)) return std::vector<std::pair<int,int>>();
+                std::vector<std::pair<int,int>> flipped;
+                b[r][c] = player; int opponent = (player==1?2:1);
+                for (int d=0; d<8; ++d) {
+                    int nr=r+dx[d], nc=c+dy[d]; std::vector<std::pair<int,int>> temp;
+                    while (isValidPosBoard(b,nr,nc) && b[nr][nc]==opponent) { temp.push_back({nr,nc}); nr+=dx[d]; nc+=dy[d]; }
+                    if (isValidPosBoard(b,nr,nc) && b[nr][nc]==player) {
+                        for (auto &p: temp) { b[p.first][p.second] = player; flipped.push_back(p); }
+                    }
+                }
+                return flipped;
+            };
+            auto evaluateBoard = [&](int b[BOARD_N][BOARD_N], int player)->int{
+                int opponent = (player==1?2:1);
+                int score = 0;
+                // positional weights
+                for (int r=0;r<BOARD_N;++r) for (int c=0;c<BOARD_N;++c) {
+                    if (b[r][c]==player) score += positionWeights[r][c]; else if (b[r][c]==opponent) score -= positionWeights[r][c];
+                }
+                // mobility
+                int pm = (int)getValidMovesBoard(b,player).size();
+                int om = (int)getValidMovesBoard(b,opponent).size();
+                score += (pm - om) * 5;
+                return score;
+            };
+
+            // minimax with alpha-beta on a provided board (player = maximizing player's id)
+            std::function<int(int[BOARD_N][BOARD_N], int,int,int,bool,int)> minimaxBoard;
+            minimaxBoard = [&](int b[BOARD_N][BOARD_N], int depth, int alpha, int beta, bool maximizingPlayer, int player)->int{
+                if (depth == 0) return evaluateBoard(b, player);
+                int opponent = (player==1?2:1);
+                int current = maximizingPlayer ? player : opponent;
+                auto moves = getValidMovesBoard(b, current);
+                if (moves.empty()) {
+                    // if both players have no moves, terminal
+                    if (getValidMovesBoard(b, opponent).empty()) {
+                        int bb=0, ww=0; for (int r=0;r<BOARD_N;++r) for (int c=0;c<BOARD_N;++c) { if (b[r][c]==1) ++bb; else if (b[r][c]==2) ++ww; }
+                        if (player==1) return (bb-ww)*1000; else return (ww-bb)*1000;
+                    }
+                    return minimaxBoard(b, depth-1, alpha, beta, !maximizingPlayer, player);
+                }
+                if (maximizingPlayer) {
+                    int maxEval = -1000000;
+                    for (auto &m: moves) {
+                        int bcopy[BOARD_N][BOARD_N]; std::copy(&b[0][0], &b[0][0]+BOARD_N*BOARD_N, &bcopy[0][0]);
+                        applyMoveBoard(bcopy, m.first, m.second, current);
+                        int eval = minimaxBoard(bcopy, depth-1, alpha, beta, false, player);
+                        maxEval = std::max(maxEval, eval);
+                        alpha = std::max(alpha, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return maxEval;
+                } else {
+                    int minEval = 1000000;
+                    for (auto &m: moves) {
+                        int bcopy[BOARD_N][BOARD_N]; std::copy(&b[0][0], &b[0][0]+BOARD_N*BOARD_N, &bcopy[0][0]);
+                        applyMoveBoard(bcopy, m.first, m.second, current);
+                        int eval = minimaxBoard(bcopy, depth-1, alpha, beta, true, player);
+                        minEval = std::min(minEval, eval);
+                        beta = std::min(beta, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return minEval;
+                }
+            };
+
+            // choose move according to selected difficulty
+            int chooseR=-1, chooseC=-1;
+            std::vector<std::pair<int,int>> moves = getValidMovesBoard(board, 2);
+            if (moves.empty()) {
                 checkEndOrPass();
             } else {
-                // AI无棋可下，尝试切回玩家；若玩家也无棋则结束
-                checkEndOrPass();
+                if (aiDifficulty == Difficulty::EASY) {
+                    std::vector<std::pair<int,int>> good;
+                    for (auto &m: moves) { int f = evalFlipCount(m.first, m.second, 2); if (f>2) good.push_back(m); }
+                    if (!good.empty()) {
+                        std::random_device rd; std::mt19937 gen(rd()); std::uniform_int_distribution<> dis(0, (int)good.size()-1);
+                        auto p = good[dis(gen)]; chooseR=p.first; chooseC=p.second;
+                    } else { std::random_device rd; std::mt19937 gen(rd()); std::uniform_int_distribution<> dis(0, (int)moves.size()-1); auto p=moves[dis(gen)]; chooseR=p.first; chooseC=p.second; }
+                } else if (aiDifficulty == Difficulty::MEDIUM) {
+                    int bestFlip = -1; for (auto &m: moves) { int f = evalFlipCount(m.first, m.second, 2); if (f>bestFlip) { bestFlip=f; chooseR=m.first; chooseC=m.second; } }
+                } else { // HARD
+                    int bestScore = -1000000; for (auto &m: moves) {
+                        int bcopy[BOARD_N][BOARD_N]; std::copy(&board[0][0], &board[0][0]+BOARD_N*BOARD_N, &bcopy[0][0]);
+                        applyMoveBoard(bcopy, m.first, m.second, 2);
+                        int score = minimaxBoard(bcopy, 3, -1000000, 1000000, false, 2);
+                        if (score > bestScore) { bestScore = score; chooseR = m.first; chooseC = m.second; }
+                    }
+                }
+
+                if (chooseR != -1) {
+                    saveHistory(); makeMove(chooseR, chooseC, 2); audio.playSound("place_piece"); currentPlayer = 1; checkEndOrPass();
+                }
             }
         }
 

@@ -1,0 +1,4 @@
+/Users/a161026/Documents/c++作业/大作业打包/build/CMakeFiles/reversi.dir
+/Users/a161026/Documents/c++作业/大作业打包/build/CMakeFiles/reversi_console.dir
+/Users/a161026/Documents/c++作业/大作业打包/build/CMakeFiles/edit_cache.dir
+/Users/a161026/Documents/c++作业/大作业打包/build/CMakeFiles/rebuild_cache.dir

@@ -59,7 +59,7 @@ public:
             for (int j = 0; j < BOARD_SIZE; j++) std::cout << board[i][j] << " ";
             std::cout << '\n';
         }
-        std::cout << "当前玩家: " << (currentPlayer == BLACK_C ? "黑棋(B)" : "白棋(W)") << '\n';
+    std::cout << "Current player: " << (currentPlayer == BLACK_C ? "Black(B)" : "White(W)") << '\n';
     }
 
     bool isValidPosition(int x, int y) { return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE; }
@@ -165,16 +165,16 @@ public:
     }
 
     bool undoMove() {
-        if (moveHistory.empty()) { std::cout << "没有可撤的记录\n"; return false; }
+    if (moveHistory.empty()) { std::cout << "No undo records\n"; return false; }
         auto last = moveHistory.top(); moveHistory.pop(); auto movePos = last.first; board[movePos.first][movePos.second]=EMPTY_C;
         char opponent = (currentPlayer==BLACK_C?WHITE_C:BLACK_C);
         for (auto pos: last.second) board[pos.first][pos.second]=opponent;
-        switchPlayer(); std::cout<<"撤销成功\n"; return true;
+    switchPlayer(); std::cout<<"Undo successful\n"; return true;
     }
 
     bool isGameOver() { return getValidMoves(BLACK_C).empty() && getValidMoves(WHITE_C).empty(); }
 
-    void showResult() { int b,w; countPieces(b,w); std::cout<<"\n游戏结束\n"; std::cout<<"黑: "<<b<<" 白: "<<w<<"\n"; if (b>w) std::cout<<"黑胜\n"; else if (w>b) std::cout<<"白胜\n"; else std::cout<<"平局\n"; }
+    void showResult() { int b,w; countPieces(b,w); std::cout<<"\nGame over\n"; std::cout<<"Black: "<<b<<" White: "<<w<<"\n"; if (b>w) std::cout<<"Black wins\n"; else if (w>b) std::cout<<"White wins\n"; else std::cout<<"Draw\n"; }
 
     std::pair<int,int> computerMove() {
         auto moves = getValidMoves(currentPlayer);
@@ -199,18 +199,18 @@ public:
     }
 
     void playGame() {
-        std::cout<<"=== 翻转棋 (控制台) ===\n";
-        std::cout<<"输入坐标格式: 行 列 (例如: 3 4)"<<std::endl;
-        std::cout<<"输入 'undo' 撤销， 'quit' 退出"<<std::endl;
+    std::cout<<"=== Reversi (Console) ===\n";
+    std::cout<<"Enter coordinates: row col (e.g., 3 4)"<<std::endl;
+    std::cout<<"Type 'undo' to undo, 'quit' to exit"<<std::endl;
         while (!isGameOver()) {
             printBoard(); auto valid = getValidMoves(currentPlayer);
-            if (valid.empty()) { std::cout<<"当前玩家无子可下，跳过...\n"; switchPlayer(); continue; }
+            if (valid.empty()) { std::cout<<"Current player has no moves, skipping...\n"; switchPlayer(); continue; }
             if (vsComputer && currentPlayer==WHITE_C) {
-                std::cout<<"AI 思考中...\n"; auto mv = computerMove(); if (mv.first!=-1) { makeMove(mv.first,mv.second,currentPlayer); std::cout<<"AI 下子: ("<<mv.first<<","<<mv.second<<")\n"; switchPlayer(); }
+                std::cout<<"AI thinking...\n"; auto mv = computerMove(); if (mv.first!=-1) { makeMove(mv.first,mv.second,currentPlayer); std::cout<<"AI move: ("<<mv.first<<","<<mv.second<<")\n"; switchPlayer(); }
             } else {
-                std::string in; std::cout<<"请输入落子或命令: "; std::cin>>in; if (in=="quit") break; if (in=="undo") { undoMove(); continue; }
-                try { int x = std::stoi(in); int y; std::cin>>y; if (isValidMove(x,y,currentPlayer)) { makeMove(x,y,currentPlayer); switchPlayer(); } else { std::cout<<"无效落子\n"; } }
-                catch(...) { std::cout<<"格式错误, 请用: 行 列\n"; std::cin.clear(); std::cin.ignore(10000,'\n'); }
+                std::string in; std::cout<<"Enter move or command: "; std::cin>>in; if (in=="quit") break; if (in=="undo") { undoMove(); continue; }
+                try { int x = std::stoi(in); int y; std::cin>>y; if (isValidMove(x,y,currentPlayer)) { makeMove(x,y,currentPlayer); switchPlayer(); } else { std::cout<<"Invalid move\n"; } }
+                catch(...) { std::cout<<"Format error, use: row col\n"; std::cin.clear(); std::cin.ignore(10000,'\n'); }
             }
         }
         if (isGameOver()) showResult();
@@ -218,7 +218,7 @@ public:
 };
 
 int main() {
-    std::cout << "请选择模式: 1. 双人 2. 人机(简单) 3. 人机(中等) 4. 人机(困难)\n";
+    std::cout << "Select mode: 1. Two players 2. vsComputer (Easy) 3. vsComputer (Medium) 4. vsComputer (Hard)\n";
     int choice = 2; if (!(std::cin >> choice)) return 0;
     bool vsComputer = (choice != 1);
     AIDifficulty diff = AIDifficulty::MEDIUM;

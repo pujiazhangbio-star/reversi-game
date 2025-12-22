@@ -22,8 +22,8 @@ option(BUILD_GUI "Build the SFML GUI executable (requires SFML)" ON)
 
 # Attempt to find SFML only when GUI target requested
 if(BUILD_GUI)
-  # Prefer SFML 3
-  find_package(SFML 3 COMPONENTS Graphics Window System QUIET)
+  # Prefer SFML 3 (include Audio component)
+  find_package(SFML 3 COMPONENTS Graphics Window System Audio QUIET)
   if(NOT SFML_FOUND)
     message(STATUS "SFML 3 not found, trying SFML 2.x ...")
     find_package(SFML 2.5 COMPONENTS graphics window system QUIET)
@@ -49,9 +49,9 @@ if(BUILD_GUI AND SFML_FOUND)
 
   # Link depending on the found version
   if(SFML_VERSION VERSION_GREATER_EQUAL 3)
-    target_link_libraries(reversi PRIVATE SFML::Graphics SFML::Window SFML::System)
+    target_link_libraries(reversi PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Audio)
   else()
-    target_link_libraries(reversi PRIVATE sfml-graphics sfml-window sfml-system)
+    target_link_libraries(reversi PRIVATE sfml-graphics sfml-window sfml-system sfml-audio)
   endif()
 
   if(WIN32 AND STATIC_SINGLE_EXE)
@@ -87,6 +87,23 @@ if(BUILD_CONSOLE)
       INSTALL_RPATH "/opt/homebrew/lib"
     )
   endif()
+endif()
+
+### Installation and packaging helpers (useful for producing a Windows ZIP/installer)
+if(BUILD_GUI AND SFML_FOUND)
+  # install executable
+  install(TARGETS reversi
+    RUNTIME DESTINATION bin
+  )
+  # install runtime resources (fonts/sounds) in case EMBED_FONT is off
+  install(DIRECTORY ${CMAKE_SOURCE_DIR}/fonts DESTINATION .)
+  install(DIRECTORY ${CMAKE_SOURCE_DIR}/sounds DESTINATION . OPTIONAL)
+
+  include(CPack)
+  set(CPACK_GENERATOR "ZIP")
+  set(CPACK_PACKAGE_NAME "reversi-windows")
+  set(CPACK_PACKAGE_VERSION "1.0.0")
+  set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/README.md")
 endif()
 
 

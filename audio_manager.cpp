@@ -15,10 +15,11 @@ bool AudioManager::loadSound(const std::string& name, const std::string& filenam
 		return false;
 	}
 	buffers[name] = buffer;
-	sf::Sound sound;
-	sound.setBuffer(buffers[name]);
+	// SFML 3's sf::Sound requires construction with a SoundBuffer
+	sf::Sound sound(buffers[name]);
 	sound.setVolume(volume);
-	sounds[name] = sound;
+	// Insert by copy to avoid requiring a default-constructible mapped_type
+	sounds.insert(std::make_pair(name, sound));
 	return true;
 }
 void AudioManager::playSound(const std::string& name) {
