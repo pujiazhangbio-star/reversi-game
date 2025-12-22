@@ -1,0 +1,52 @@
+name: Build Windows executable
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup vcpkg and install SFML
+      shell: powershell
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git vcpkg
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg.exe install sfml[audio,window,graphics]:x64-windows
+
+    - name: Configure (CMake)
+      shell: powershell
+      run: |
+        $Toolchain = "${{ github.workspace }}\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$Toolchain" -DBUILD_GUI=ON -DEMBED_FONT=ON
+
+    - name: Build (Release)
+      shell: powershell
+      run: |
+        cmake --build build --config Release --target reversi -j
+
+    - name: Collect runtime files and package
+      shell: powershell
+      run: |
+        mkdir package
+        Copy-Item -Path build\Release\reversi.exe -Destination package\ -Force
+        if (Test-Path fonts) { Copy-Item -Path fonts -Destination package\ -Recurse -Force }
+        if (Test-Path sounds) { Copy-Item -Path sounds -Destination package\ -Recurse -Force }
+        # copy SFML DLLs from vcpkg installed folder
+        $vcpkgBin = Join-Path -Path "${{ github.workspace }}" -ChildPath "vcpkg\\installed\\x64-windows\\bin"
+        if (Test-Path $vcpkgBin) { Copy-Item -Path (Join-Path $vcpkgBin "*.dll") -Destination package\ -Force }
+        # create zip
+        Compress-Archive -Path package\* -DestinationPath reversi-windows.zip -Force
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: reversi-windows
+        path: reversi-windows.zip
